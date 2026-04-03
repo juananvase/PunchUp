@@ -21,7 +21,7 @@ public class FirstPersonCamLooker : MonoBehaviour
         }
     }
 
-    private void Update()
+    private void FixedUpdate()
     {
         LookUpdate();
     }
@@ -36,7 +36,7 @@ public class FirstPersonCamLooker : MonoBehaviour
         if (!_canLook) return;
         Vector2 input = new Vector2(_lookInput.x * _lookSensitivity.x, _lookInput.y * _lookSensitivity.y);
         // handles look up and down
-        CurrentPitch -= input.y * Time.deltaTime;
+        CurrentPitch -= input.y * Time.fixedDeltaTime;
         _playerCam.transform.localRotation = Quaternion.Euler(_currentPitch, 0f, 0f);
 
         // handles looking side to side
