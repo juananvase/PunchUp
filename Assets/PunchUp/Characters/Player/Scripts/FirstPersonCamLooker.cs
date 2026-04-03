@@ -10,6 +10,7 @@ public class FirstPersonCamLooker : MonoBehaviour
 
     private Vector2 _lookInput;
     private float _currentPitch = 0.0f;
+    public Vector3 LookPitch { get; private set; }
 
     public float CurrentPitch
     {
