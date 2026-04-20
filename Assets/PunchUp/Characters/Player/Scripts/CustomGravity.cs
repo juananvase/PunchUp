@@ -14,7 +14,7 @@ public class CustomGravity : MonoBehaviour
 
         if (!IsGravityEnabled)
         {
-            gravity = 0.0f;
+            gravity = MinGravity;
             CurrentGravity = gravity;
         }
         else
@@ -22,7 +22,7 @@ public class CustomGravity : MonoBehaviour
             if (CurrentGravity > MaxGravity)
             {
                 CurrentGravity += GravityAcceleration * Time.deltaTime;
-                Mathf.Clamp(CurrentGravity, CurrentGravity, MaxGravity);
+                Mathf.Clamp(CurrentGravity, MaxGravity, MinGravity);
             }
 
             gravity = CurrentGravity;
@@ -38,5 +38,10 @@ public class CustomGravity : MonoBehaviour
     public void EnableGravity()
     {
         IsGravityEnabled = true;
+    }
+
+    public void ResetGravity()
+    {
+        CurrentGravity = MinGravity;
     }
 }

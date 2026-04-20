@@ -36,9 +36,6 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float _punchForce = 10.0f;
     [SerializeField] private float _punchReflectionForce = 10.0f;
 
-    [Header("Art")]
-    [SerializeField] private GameObject _playerMesh;
-
     [Header("Events")]
     [SerializeField] public UnityEvent OnLanded = new UnityEvent();
     [SerializeField] public UnityEvent PunchEvent = new UnityEvent();
@@ -123,7 +120,7 @@ public class PlayerMovement : MonoBehaviour
         // TODO: must be consistent rate!
         Vector3 velocityDiff = targetVelocity - _rigidBody.linearVelocity;
         velocityDiff.y = 0;
-        velocityDiff += _groundNormal * _customGravity.HandleGravity();
+        Vector3 controlledDiff = velocityDiff * _currentControl;
 
         if (_isGrounded)
         {
@@ -132,12 +129,13 @@ public class PlayerMovement : MonoBehaviour
         else if (!_isGrounded)
         {
             _customGravity.EnableGravity();
-            _currentControl = _airControl;
+            if (_hasMoveInput) _currentControl = _airControl;
+            else _currentControl = 0.0f;
         }
 
-        _rigidBody.AddForce(velocityDiff * _rigidBody.mass * _currentControl);
+        controlledDiff += _groundNormal * _customGravity.HandleGravity();
 
-        MeshLookUpdate();
+        _rigidBody.AddForce(controlledDiff * _rigidBody.mass);
     }
 
     private void SetMoveInput(Vector3 input)
@@ -220,15 +218,15 @@ public class PlayerMovement : MonoBehaviour
             Vector3 punchedNormal = hitInfo.normal;
             Vector3 reflectionVector = transform.position - punchedNormal;
 
-            _currentControl = 0.0f;
             PunchEvent.Invoke();
-            _rigidBody.AddForce(-Camera.main.transform.forward * _punchReflectionForce, ForceMode.Impulse);
-        }
-    }
 
-    private void MeshLookUpdate()
-    {
-        _playerMesh.transform.localRotation = Quaternion.Euler(_camLooker.CurrentPitch, transform.localRotation.y, transform.localRotation.z);
+            _currentControl = _groundControl;
+            _customGravity.ResetGravity();
+            _rigidBody.linearVelocity = new Vector3(_rigidBody.linearVelocity.x, 0, _rigidBody.linearVelocity.z);
+
+            _rigidBody.AddForce(-Camera.main.transform.forward * _punchReflectionForce, ForceMode.Impulse);
+            _currentControl = 0.0f;
+        }
     }
 
     // == DEBUG ==
