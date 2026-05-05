@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.InputSystem;
@@ -18,6 +19,9 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float _groundControl = 1.0f;
     [SerializeField] private float _airControl = 0.5f;
 
+    [Header("Jump")]
+    [SerializeField] private float _jumpForce = 5.0f;
+
     [Header("Turning")]
     [SerializeField] private float _rotationSpeed = 5.0f;
     [SerializeField] private float _turnSpeedMultiplier = 1.0f;
@@ -30,11 +34,10 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float _maxSlopeAngle;
 
     [Header("Punch")]
-    [SerializeField] private float _punchDistance = 2.0f;
-    [SerializeField] private LayerMask _punchMask;
+    [SerializeField] private PunchData _normalPunchData;
+    [SerializeField] private PunchData _chargePunchData;
     private Vector3 _aimPosition;
-    [SerializeField] private float _punchForce = 10.0f;
-    [SerializeField] private float _punchReflectionForce = 10.0f;
+    [SerializeField] private float _timeToChargePunch = 2.0f;
 
     [Header("Events")]
     [SerializeField] public UnityEvent OnLanded = new UnityEvent();
@@ -80,10 +83,15 @@ public class PlayerMovement : MonoBehaviour
 
     public void OnPunch()
     {
-        Punch();
+        Punch(_normalPunchData);
     }
 
     public void OnJump()
+    {
+        TryJump();
+    }
+
+    public void OnSprint()
     {
         Teleport(_startPositon);
     }
@@ -210,9 +218,17 @@ public class PlayerMovement : MonoBehaviour
         _currentControl = _groundControl;
     }
 
-    private void Punch()
+    private IEnumerator ChargePunchRoutine()
     {
-        if (Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out RaycastHit hitInfo, _punchDistance, _punchMask))
+        while (true)
+        {
+            yield return null;
+        }
+    }
+
+    private void Punch(PunchData punchData)
+    {
+        if (Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out RaycastHit hitInfo, punchData.PunchDistance, punchData.PunchMask))
         {
             _aimPosition = hitInfo.point;
             Vector3 punchedNormal = hitInfo.normal;
@@ -224,9 +240,27 @@ public class PlayerMovement : MonoBehaviour
             _customGravity.ResetGravity();
             _rigidBody.linearVelocity = new Vector3(_rigidBody.linearVelocity.x, 0, _rigidBody.linearVelocity.z);
 
-            _rigidBody.AddForce(-Camera.main.transform.forward * _punchReflectionForce, ForceMode.Impulse);
+            _rigidBody.AddForce(-Camera.main.transform.forward * punchData.PunchReflectionForce, ForceMode.Impulse);
             _currentControl = 0.0f;
         }
+    }
+
+    private bool TryJump()
+    {
+        if (_isGrounded)
+        {
+            DoJump();
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    private void DoJump()
+    {
+        _rigidBody.AddForce(Vector3.up * _jumpForce, ForceMode.Impulse);
     }
 
     // == DEBUG ==
