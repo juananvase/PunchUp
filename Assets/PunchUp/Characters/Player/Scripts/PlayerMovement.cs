@@ -81,9 +81,16 @@ public class PlayerMovement : MonoBehaviour
         _camLooker.SetLookInput(inputValue.Get<Vector2>());
     }
 
-    public void OnPunch()
+    public void OnPunch(InputValue inputValue)
     {
-        Punch(_normalPunchData);
+        if (inputValue.isPressed)
+        {
+            // charge
+        }
+        else
+        {
+            Punch(_normalPunchData);
+        }
     }
 
     public void OnJump()
