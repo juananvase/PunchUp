@@ -5,8 +5,9 @@ public class CustomGravity : MonoBehaviour
     [field: SerializeField] public float MinGravity { get; private set; } = -1.0f;
     [field: SerializeField] public float MaxGravity { get; private set; } = -10.0f;
     [field: SerializeField] public float GravityAcceleration { get; private set; } = -9.0f;
-    public float CurrentGravity { get; private set; }
+    public float CurrentGravity { get; private set; } = 0.0f;
     public bool IsGravityEnabled { get; private set; } = true;
+    public bool IsGravityAccelerationEnabled { get; private set; } = true;
 
     public float HandleGravity()
     {
@@ -14,19 +15,20 @@ public class CustomGravity : MonoBehaviour
 
         if (!IsGravityEnabled)
         {
-            gravity = MinGravity;
-            CurrentGravity = gravity;
+            gravity = 0.0f;
+            CurrentGravity = MinGravity;
         }
         else
         {
-            if (CurrentGravity > MaxGravity)
+            if (CurrentGravity > MaxGravity && IsGravityAccelerationEnabled)
             {
-                CurrentGravity += GravityAcceleration * Time.deltaTime;
-                Mathf.Clamp(CurrentGravity, MaxGravity, MinGravity);
+                CurrentGravity += GravityAcceleration * Time.fixedDeltaTime;
+                CurrentGravity = Mathf.Clamp(CurrentGravity, MaxGravity, MinGravity);
             }
 
             gravity = CurrentGravity;
         }
+
         return gravity;
     }
 
@@ -40,8 +42,19 @@ public class CustomGravity : MonoBehaviour
         IsGravityEnabled = true;
     }
 
+    public void DisableGravityAcceleration()
+    {
+        IsGravityAccelerationEnabled = false;
+    }
+
+    public void EnableGravityAcceleration()
+    {
+        IsGravityAccelerationEnabled = true;
+    }
+
     public void ResetGravity()
     {
+        EnableGravityAcceleration();
         CurrentGravity = MinGravity;
     }
 }

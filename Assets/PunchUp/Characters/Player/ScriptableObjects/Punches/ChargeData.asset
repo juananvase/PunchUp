@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d8bbd6b0423af3e4d965416a88bd175c, type: 3}
   m_Name: ChargeData
   m_EditorClassIdentifier: Assembly-CSharp::PunchData
-  PunchDistance: 2
+  PunchDistance: 4.5
   PunchMask:
     serializedVersion: 2
     m_Bits: 1
   PunchForce: 30
-  PunchReflectionForce: 30
+  PunchReflectionForce: 41
   ChargeTime: 2

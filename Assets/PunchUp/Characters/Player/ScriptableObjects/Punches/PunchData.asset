@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d8bbd6b0423af3e4d965416a88bd175c, type: 3}
   m_Name: PunchData
   m_EditorClassIdentifier: Assembly-CSharp::PunchData
-  PunchDistance: 2
+  PunchDistance: 3.5
   PunchMask:
     serializedVersion: 2
     m_Bits: 1
