@@ -52,6 +52,7 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private LayerMask _groundLayer;
     [SerializeField] private float _maxSlopeAngle;
     private Vector3 _groundPoint;
+    private Vector3 _previousNormals;
 
     [Header("Punch")]
     [SerializeField] private PunchData _normalPunchData;
@@ -164,9 +165,20 @@ public class PlayerMovement : MonoBehaviour
 
     private void FixedUpdate()
     {
+        _hasLanded = false;
+        _wasGroundedLastFrame = _isGrounded;
+        _isGrounded = GroundCheck();
+        // Called when you land
+        if (!_wasGroundedLastFrame && _isGrounded) Landed();
+        
+        FloatCapsule();
+        
+        Debug.Log(_isGrounded);
 
-
-        Debug.Log(_groundPoint);
+        // Get current surface normals using sphere cast or ray cast
+        Quaternion fromTo = Quaternion.FromToRotation(_previousNormals, _groundNormal);
+        _rigidBody.linearVelocity = fromTo * _rigidBody.linearVelocity;
+        _previousNormals = _groundNormal;
 
         Vector3 input = _moveInput;
         Vector3 right = Vector3.Cross(transform.up, input);
@@ -220,26 +232,31 @@ public class PlayerMovement : MonoBehaviour
 
     private void LateFixedUpdate()
     {
-        _hasLanded = false;
-        _wasGroundedLastFrame = _isGrounded;
-        _isGrounded = GroundCheck();
-        // Called when you land
-        if (!_wasGroundedLastFrame && _isGrounded) Landed();
 
-        FloatCapsule();
+
+        
     }
 
+    // when starting to move on a slope it breaks
     // WIP
     private void FloatCapsule()
     {
         //transform.up = _groundNormal;
 
-        Vector3 goal = new Vector3(_groundPoint.x, _groundPoint.y + _stepHeight, _groundPoint.z);
+        //Vector3 goal = new Vector3(_groundPoint.x, _groundPoint.y + _stepHeight, _groundPoint.z);
+        Vector3 goal;
+        if (_isGrounded)
+        {
+            goal = _groundPoint + transform.up * _stepHeight;
+        }
+        else
+        {
+            goal = new Vector3(_groundPoint.x, _groundPoint.y + _stepHeight, _groundPoint.z);
+        }
 
         Vector3 difference = goal - _rigidBody.transform.position;
 
         if(_rigidBody.SweepTest(difference, out _, difference.magnitude, QueryTriggerInteraction.Ignore)) return;
-        Debug.LogWarning("Passed Sweep Test");
 
         if (_isGrounded)
         {

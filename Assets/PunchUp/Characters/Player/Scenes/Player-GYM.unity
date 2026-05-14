@@ -4318,7 +4318,7 @@ MonoBehaviour:
   _groundLayer:
     serializedVersion: 2
     m_Bits: 1
-  _maxSlopeAngle: 369.7
+  _maxSlopeAngle: 180
   _normalPunchData: {fileID: 11400000, guid: 802cf1510c0c97d428a8711cf21b6a8c, type: 2}
   _chargePunchData: {fileID: 11400000, guid: 64c9da769408c9b4ebe312018711e877, type: 2}
   _timeToChargePunch: 2
@@ -4468,8 +4468,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f3bc542ec174a8b41bbbe47b5bf1c78f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CustomGravity
-  <MinGravity>k__BackingField: 0
-  <MaxGravity>k__BackingField: 0
+  <MinGravity>k__BackingField: -45
+  <MaxGravity>k__BackingField: -45
   <GravityAcceleration>k__BackingField: 0
 --- !u!95 &769398704
 Animator:
