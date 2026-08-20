@@ -17,31 +17,25 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private CustomGravity _customGravity;
     [SerializeField] private CapsuleCollider _capsuleCollider;
 
-    private Vector3 _horizontalVelocity => new Vector3(_rigidBody.linearVelocity.x, 0.0f, _rigidBody.linearVelocity.z);
-    private Vector3 _verticalVelocity => Vector3.Project(_rigidBody.linearVelocity, _rigidBody.transform.up);
-    private float _verticalSpeed => Vector3.Dot(_rigidBody.linearVelocity, _rigidBody.transform.up);
-
     [Header("Locomotion")]
     [SerializeField] private float _maxSpeed = 5.0f;
     [SerializeField] private float _groundControl = 1.0f;
     [SerializeField] private float _airControl = 0.5f;
     [SerializeField] private float _chargePunchTime = 0.5f;
     private bool _canChargePunch = false;
-
-    [Header("Floating Debug")]
-    [SerializeField] private float _floatRayDistance = 2.0f;
-    [SerializeField] private float _stepHeight = 25.0f;
-    [SerializeField] private Vector3 _snapLeanience;
-    [SerializeField] private float _springTargetHeight;
-    [SerializeField] private float _springStrength;
-    [SerializeField] private float _springDamper;
-    private float _modifiedSpringTargetHeight;
-    private RaycastHit rayHit;
+    [SerializeField] private float _groundGravityMultiplier = 5.0f;
+    [SerializeField] private float _slopeGravity = 80.0f;
 
     [Header("Jump")]
     [SerializeField] private float _jumpForce = 5.0f;
 
-    [Header("Turning")]
+    [Header("Floating")]
+    [SerializeField] private bool _canFloat = true;
+    [SerializeField] private float _floatRayDistance = 2.0f;
+    [SerializeField] private float _stepReachForce = 25.0f;
+    [SerializeField] private float _stepHeight = 1.0f;
+
+    [Header("Mesh Turning")]
     [SerializeField] private float _rotationSpeed = 5.0f;
     [SerializeField] private float _turnSpeedMultiplier = 1.0f;
     [SerializeField] private bool _canTurn = true;
@@ -51,6 +45,8 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float _groundCheckDistance = 2.0f;
     [SerializeField] private LayerMask _groundLayer;
     [SerializeField] private float _maxSlopeAngle;
+    private bool _isOnSlope = false;
+    private bool _wasOnSlopeLastFrame = false;
     private Vector3 _groundPoint;
     private Vector3 _previousNormals;
 
@@ -100,13 +96,6 @@ public class PlayerMovement : MonoBehaviour
     private void Start()
     {
         _startPositon = transform.position;
-        _modifiedSpringTargetHeight = _springTargetHeight;
-
-        _hasLanded = false;
-        _wasGroundedLastFrame = _isGrounded;
-        _isGrounded = GroundCheck();
-        // Called when you land
-        if (!_wasGroundedLastFrame && _isGrounded) Landed();
     }
 
     public void OnMove(InputValue inputValue)
@@ -150,7 +139,14 @@ public class PlayerMovement : MonoBehaviour
 
     public void OnDebug()
     {
-
+        if(Time.timeScale  < 1.0f)
+        {
+            Time.timeScale = 1.0f;
+        }
+        else
+        {
+            Time.timeScale = 0.4f;
+        }
     }
 
     private void Update()
@@ -170,20 +166,11 @@ public class PlayerMovement : MonoBehaviour
         _isGrounded = GroundCheck();
         // Called when you land
         if (!_wasGroundedLastFrame && _isGrounded) Landed();
-        
-        FloatCapsule();
-        
-        Debug.Log(_isGrounded);
-
-        // Get current surface normals using sphere cast or ray cast
-        Quaternion fromTo = Quaternion.FromToRotation(_previousNormals, _groundNormal);
-        _rigidBody.linearVelocity = fromTo * _rigidBody.linearVelocity;
-        _previousNormals = _groundNormal;
 
         Vector3 input = _moveInput;
         Vector3 right = Vector3.Cross(transform.up, input);
         Vector3 forward = Vector3.Cross(right, _groundNormal);
-        //Vector3 forward = Vector3.ProjectOnPlane(input, _groundNormal).normalized;
+        //Vector3 forward = Vector3.ProjectOnPlane(input, _groundNormal);
 
         Vector3 targetVelocity = forward * _maxSpeed;
 
@@ -191,234 +178,111 @@ public class PlayerMovement : MonoBehaviour
         velocityDiff.y = 0;
         Vector3 controlledDiff = velocityDiff * _currentControl;
 
-        controlledDiff = Vector3.ProjectOnPlane(controlledDiff, _groundNormal);
+        //controlledDiff = Vector3.ProjectOnPlane(controlledDiff, _groundNormal);
         controlledDiff += _groundNormal * _customGravity.HandleGravity();
 
-        if (_isGrounded)
+        if (_isGrounded || _isOnSlope)
         {
-            if (_disableGravityWhenGrounded)
-            {
-                _customGravity.DisableGravity();
-            }
-            else
-            {
-                _customGravity.ResetGravity();
-                _customGravity.DisableGravityAcceleration();
-            }
+            _customGravity.EnableGravity();
+            _customGravity.ResetGravity();
+            _customGravity.DisableGravityAcceleration();
         }
         else
         {
+            _customGravity.ChangeGravityMultiplier(1.0f);
             _customGravity.EnableGravityAcceleration();
             _customGravity.EnableGravity();
             if (_hasMoveInput) _currentControl = _airControl;
             else _currentControl = 0.0f;
         }
 
-        _rigidBody.AddForce(controlledDiff * _rigidBody.mass);
+        if (_isOnSlope)
+        {
+            if(_rigidBody.linearVelocity.y > 0)
+            {
+                _rigidBody.AddForce(Vector3.down * _slopeGravity, ForceMode.Force);
+            }
+        }
+        _rigidBody.AddForce(controlledDiff * _rigidBody.mass, ForceMode.Force);
+        //if(_canFloat) FloatCapsule3();
 
         Debug.DrawLine(transform.position, transform.position + targetVelocity, Color.yellow);
-        Debug.DrawLine(transform.position, transform.position + controlledDiff, Color.cyan);
-
-        
-        StartCoroutine(LateFixedUpdateRoutine());
-
-        IEnumerator LateFixedUpdateRoutine()
-        {
-            yield return new WaitForFixedUpdate();
-
-            LateFixedUpdate();
-        }
+        //Debug.DrawLine(transform.position, transform.position + controlledDiff, Color.cyan);
     }
 
-    private void LateFixedUpdate()
-    {
 
 
-        
-    }
-
-    // when starting to move on a slope it breaks
-    // WIP
     private void FloatCapsule()
     {
-        //transform.up = _groundNormal;
-
-        //Vector3 goal = new Vector3(_groundPoint.x, _groundPoint.y + _stepHeight, _groundPoint.z);
-        Vector3 goal;
-        if (_isGrounded)
-        {
-            goal = _groundPoint + transform.up * _stepHeight;
-        }
-        else
-        {
-            goal = new Vector3(_groundPoint.x, _groundPoint.y + _stepHeight, _groundPoint.z);
-        }
-
-        Vector3 difference = goal - _rigidBody.transform.position;
-
-        if(_rigidBody.SweepTest(difference, out _, difference.magnitude, QueryTriggerInteraction.Ignore)) return;
-
-        if (_isGrounded)
-        {
-            _rigidBody.transform.position = goal;
-        }
-        else
-        {
-            _rigidBody.transform.position = _groundPoint;
-        }
-    }
-
-    private void FloatTest()
-    {
-        // this works but super buggy and you fly into the air when you are not grounded
-        // double check the sonic one perhaps
-        // something here with -transform.up
-        float a = _groundPoint.y + _stepHeight;
-        Vector3 newPosition = new Vector3(_rigidBody.position.x, a, _rigidBody.position.z);
-
-        //transform.up = _groundNormal;
-        // ^ works but needs to work with current rotation method ^
-
-
-        Vector3 difference = (_groundPoint - _snapLeanience) - _rigidBody.position;
-
-        if (_rigidBody.SweepTest(difference, out RaycastHit hitInfo, difference.magnitude, QueryTriggerInteraction.Ignore)) return;
-        Debug.Log("SWEEP TEST WORKI");
-        //Vector3 diff = _groundPoint - _rigidBody.position;
-        //Vector3 b = transform.up * _stepHeight;
-        //var c = diff + b;
-
-        //var d = _groundNormal * _stepHeight;
-
-        if (!_isGrounded) return;
-        _rigidBody.transform.position = newPosition;
-
-        //FloatCapsule3();
-    }
-
-    private void SpringController()
-    {
-
-        Ray _ray = new Ray(transform.position, -transform.up);
-        RaycastHit _rayHit;
-        //isGrounded = false;
-
-
-        bool _rayDidHit = Physics.Raycast(_ray, out _rayHit, _groundCheckDistance, _groundLayer);
-        if (!_rayDidHit)
-        return;
-
-        bool isGrounded = Vector3.Distance(_rayHit.point, transform.position) < _springTargetHeight && !_rayHit.collider.isTrigger;
-
-        Debug.DrawLine(transform.position, transform.position + -transform.up * _groundCheckDistance, Color.red);
-
-        if (isGrounded)
-        {
-            rayHit = _rayHit;
-            Vector3 _vel = _rigidBody.linearVelocity;
-            Vector3 _rayDir = transform.TransformDirection(-transform.up);
-
-            Debug.DrawLine(transform.position, _rayHit.point, Color.green);
-
-            Vector3 _otherVel = Vector3.zero;
-            Rigidbody _hitBody = _rayHit.rigidbody;
-
-            if (_hitBody != null)
-            {
-                _otherVel = _hitBody.linearVelocity;
-            }
-
-            float _rayDirVel = Vector3.Dot(_rayDir, _vel);
-            float _otherDirVel = Vector3.Dot(_rayDir, _otherVel);
-
-            float _relVel = _rayDirVel - _otherDirVel;
-
-            float x = _rayHit.distance - _modifiedSpringTargetHeight;
-
-            float _springForce = (x * _springStrength) - (_relVel * _springDamper);
-
-            //Debug.DrawLine(origin.position, origin.position + (_rayDir * _springForce), Color.yellow);
-
-            _rigidBody.AddForce(_rayDir * _springForce);
-
-            if (_hitBody != null)
-            {
-                _hitBody.AddForceAtPosition(_rayDir * -_springForce, _rayHit.point);
-            }
-        }
-        else
-        {
-            rayHit = new RaycastHit();
-        }
-    }
-
-    private void FloatCapsule2()
-    {
-        Vector3 capsuleCenter = _capsuleCollider.bounds.center;
+        Vector3 worldCapsuleCenter = _capsuleCollider.bounds.center;
         Vector3 localCapsuleCenter = _capsuleCollider.center;
 
-        Ray floatRay = new Ray(capsuleCenter, Vector3.down);
+        Ray floatRay = new Ray(worldCapsuleCenter, Vector3.down);
 
+        // casts ray down
         if (Physics.Raycast(floatRay, out RaycastHit hitInfo, _floatRayDistance, _groundLayer, QueryTriggerInteraction.Ignore))
         {
+            // calculates distance from goal
             float distanceToFloatingPoint = localCapsuleCenter.y * transform.localScale.y - hitInfo.distance;
 
+            // doesn't float you if you are on goal point
             if (distanceToFloatingPoint == 0.0f) return;
 
-            float amountToLift = distanceToFloatingPoint * _stepHeight - _verticalVelocity.y;
+            float amountToLift = (distanceToFloatingPoint * _stepReachForce) - _rigidBody.linearVelocity.y;
 
-            Vector3 liftForce = new Vector3(0.0f, amountToLift, 0.0f);
+            //Vector3 liftForce = new Vector3(0, amountToLift, 0);
+            Vector3 liftForce = _groundNormal * amountToLift;
 
-            Debug.Log(liftForce);
             _rigidBody.AddForce(liftForce, ForceMode.VelocityChange);
         }
     }
 
-    // Sonic tutorial
     private void FloatCapsule3()
     {
-        //_rigidBody.transform.up = _groundNormal;
-        Vector3 goal = _groundPoint;
+        Vector3 worldCapsuleCenter = _capsuleCollider.bounds.center;
+        Vector3 localCapsuleCenter = _capsuleCollider.center;
 
-        Vector3 difference = goal - _rigidBody.position;
+        Ray floatRay = new Ray(worldCapsuleCenter, Vector3.down);
 
-        if (_rigidBody.SweepTest(difference, out RaycastHit hitInfo, difference.magnitude, QueryTriggerInteraction.Ignore)) return;
+        // casts ray down
+        if (Physics.Raycast(floatRay, out RaycastHit hitInfo, _floatRayDistance, _groundLayer, QueryTriggerInteraction.Ignore))
+        {
 
-        _rigidBody.transform.position = goal + (transform.up * _stepHeight);
-    }
+            // calculates distance from goal
+            // Y velocity diff to goal
+            // you're floating point is the middle of your capsule
+            float distanceToFloatingPoint = localCapsuleCenter.y * transform.localScale.y - hitInfo.distance;
+            //Vector3 distanceToFloatingPoint = (localCapsuleCenter - _groundPoint).normalized;
 
-    // set position one that worked but was finicky
-    private void FloatCapsule4()
-    {
-        // this works but super buggy and you fly into the air when you are not grounded
-        // double check the sonic one perhaps
-        float a = _groundPoint.y + _stepHeight;
-        Vector3 newPosition = new Vector3(_rigidBody.position.x, a, _rigidBody.position.z);
+            Debug.DrawLine(worldCapsuleCenter, new Vector3(worldCapsuleCenter.x, worldCapsuleCenter.y * distanceToFloatingPoint, worldCapsuleCenter.z));
 
-        Vector3 diff = _groundPoint - _rigidBody.position;
-        Vector3 b = transform.up * _stepHeight;
-        var c = diff + b;
+            //doesn't float you if you are on goal point
+            if (distanceToFloatingPoint == 0.0f) return;
+            //if (distanceToFloatingPoint == Vector3.zero) return;
 
+            float amountToLift = (distanceToFloatingPoint * _stepReachForce) - _rigidBody.linearVelocity.y;
 
-        var d = _groundNormal * _stepHeight;
+            //Debug.Log(distanceToFloatingPoint);
 
-        if (!_isGrounded) return;
-        _rigidBody.position = newPosition;
+            //Vector3 liftForce = new Vector3(0, amountToLift, 0);
+            Vector3 liftForce = _groundNormal * amountToLift;
+
+            Debug.Log(amountToLift);
+
+            _rigidBody.AddForce(liftForce, ForceMode.VelocityChange);
+        }
     }
 
     private bool GroundCheck()
     {
-        float maxDistance = Mathf.Max(_rigidBody.centerOfMass.y, 0f) + (_rigidBody.sleepThreshold * Time.fixedDeltaTime);
-
-        if (_verticalSpeed < _rigidBody.sleepThreshold) maxDistance += _groundCheckDistance;
-        groundMaxDist = maxDistance;
-
-        bool hasHitGround = Physics.Raycast(_rigidBody.worldCenterOfMass + _originOffset, -_rigidBody.transform.up, out RaycastHit hitInfo, maxDistance, _groundLayer);
+        bool hasHitGround = Physics.Raycast(_rigidBody.position + _originOffset, -_rigidBody.transform.up, out RaycastHit hitInfo, _groundCheckDistance, _groundLayer);
         _groundNormal = Vector3.up;
         _groundPoint = _rigidBody.transform.position;
+        _wasOnSlopeLastFrame = _isOnSlope;
+        _isOnSlope = false;
         if (!hasHitGround) return false;
 
-        _groundPoint = hitInfo.point;
+        //_groundPoint = hitInfo.point;
 
         Vector3 localGroundNormal = _rigidBody.transform.InverseTransformDirection(hitInfo.normal);
         float groundSlopeAngle = Vector3.Angle(localGroundNormal, _rigidBody.transform.up);
@@ -428,18 +292,13 @@ public class PlayerMovement : MonoBehaviour
         if (hasHitGround && groundSlopeAngle <= _maxSlopeAngle)
         {
             _groundNormal = hitInfo.normal;
+            _groundPoint = hitInfo.point;
             _lastGroundedTime = Time.timeSinceLevelLoad;
             _lastGroundedPosition = transform.position;
-            _groundPoint = hitInfo.point;
-
+            if (_groundNormal != Vector3.up) _isOnSlope = true;
             return true;
         }
         return false;
-    }
-
-    private void OnDrawGizmosSelected()
-    {
-        Gizmos.DrawWireSphere(_groundPoint, 0.4f);
     }
 
     private void SetMoveInput(Vector3 input)
@@ -552,6 +411,13 @@ public class PlayerMovement : MonoBehaviour
     private void OnDrawGizmos()
     {
         Gizmos.color = Color.red;
-        Gizmos.DrawLine(transform.position + _originOffset, transform.position + (-transform.up * groundMaxDist));
+        //Gizmos.DrawLine(transform.position + _originOffset, transform.position + (-transform.up * groundMaxDist));
+        //Gizmos.DrawLine(transform.position + _originOffset, transform.position + (-transform.up * _groundCheckDistance));
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.white;
+        Gizmos.DrawWireSphere(_groundPoint, 0.25f);
     }
 }

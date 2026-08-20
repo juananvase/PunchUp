@@ -5,6 +5,7 @@ public class CustomGravity : MonoBehaviour
     [field: SerializeField] public float MinGravity { get; private set; } = -1.0f;
     [field: SerializeField] public float MaxGravity { get; private set; } = -10.0f;
     [field: SerializeField] public float GravityAcceleration { get; private set; } = -9.0f;
+    public float GravityMultiplier { get; private set; } = 1.0f;
     public float CurrentGravity { get; private set; } = 0.0f;
     public bool IsGravityEnabled { get; private set; } = true;
     public bool IsGravityAccelerationEnabled { get; private set; } = true;
@@ -29,7 +30,7 @@ public class CustomGravity : MonoBehaviour
             gravity = CurrentGravity;
         }
 
-        return gravity;
+        return gravity * GravityMultiplier;
     }
 
     public void DisableGravity()
@@ -56,5 +57,10 @@ public class CustomGravity : MonoBehaviour
     {
         EnableGravityAcceleration();
         CurrentGravity = MinGravity;
+    }
+
+    public void ChangeGravityMultiplier(float multiplier)
+    {
+        GravityMultiplier = multiplier;
     }
 }
