@@ -1,46 +1,37 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class FirstPersonCamLooker : MonoBehaviour
 {
-    [SerializeField] private GameObject _playerCam;
+    [SerializeField] private GameObject _camera;
+    [SerializeField] private float _sensX;
+    [SerializeField] private float _sensY;
+    [SerializeField] private float _maxPitch = 90.0f;
 
-    [SerializeField] private bool _canLook = true;
-    [SerializeField] private Vector2 _lookSensitivity;
-    [SerializeField] private float _maxPitch = 85.0f;
+    [SerializeField] private Transform _orientation;
 
     private Vector2 _lookInput;
-    private float _currentPitch = 0.0f;
-    public Vector3 LookPitch { get; private set; }
 
-    public float CurrentPitch
+    private float xRotation;
+    private float yRotation;
+
+    public void OnLook(InputValue inputValue)
     {
-        get => _currentPitch;
-
-        set
-        {
-            _currentPitch = Mathf.Clamp(value, -_maxPitch, _maxPitch);
-        }
+        _lookInput = inputValue.Get<Vector2>();
     }
 
-    private void FixedUpdate()
+    private void Update()
     {
-        LookUpdate();
-    }
+        float mouseX = _lookInput.x * Time.deltaTime * _sensX;
+        float mouseY = _lookInput.y * Time.deltaTime * _sensY;
 
-    public void SetLookInput(Vector2 lookInput)
-    {
-        _lookInput = lookInput;
-    }
+        yRotation += mouseX;
 
-    private void LookUpdate()
-    {
-        if (!_canLook) return;
-        Vector2 input = new Vector2(_lookInput.x * _lookSensitivity.x, _lookInput.y * _lookSensitivity.y);
-        // handles look up and down
-        CurrentPitch -= input.y * Time.fixedDeltaTime;
-        _playerCam.transform.localRotation = Quaternion.Euler(_currentPitch, 0f, 0f);
+        xRotation -= mouseY;
+        xRotation = Mathf.Clamp(xRotation, -_maxPitch, _maxPitch);
 
-        // handles looking side to side
-        transform.Rotate(Vector3.up * input.x * Time.deltaTime);
+        // rotate cam and orientation
+        _camera.transform.rotation = Quaternion.Euler(xRotation, yRotation, 0);
+        _orientation.rotation = Quaternion.Euler(0, yRotation, 0);
     }
 }

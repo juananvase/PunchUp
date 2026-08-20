@@ -105,7 +105,7 @@ public class PlayerMovement : MonoBehaviour
 
     public void OnLook(InputValue inputValue)
     {
-        _camLooker.SetLookInput(inputValue.Get<Vector2>());
+        //_camLooker.SetLookInput(inputValue.Get<Vector2>());
     }
 
     public void OnPunch(InputValue inputValue)
